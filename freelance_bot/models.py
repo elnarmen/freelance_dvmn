@@ -70,6 +70,7 @@ class Order(models.Model):
     name = models.CharField(
         'Название заказа',
         max_length=50,
+        db_index=True
     )
 
     description = models.TextField(
