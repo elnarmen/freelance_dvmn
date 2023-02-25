@@ -1,5 +1,6 @@
 from telegram import Update, InputFile
-from telegram.ext import CallbackContext, Updater, ConversationHandler, CommandHandler, CallbackQueryHandler
+from telegram.ext import CallbackContext, Updater, ConversationHandler, CommandHandler, CallbackQueryHandler, \
+    MessageHandler, Filters
 from django.conf import settings
 
 import os
@@ -9,12 +10,12 @@ from more_itertools import chunked
 from freelance_bot.bot.keyboards import main_menu_keyboard, customer_menu_keyboard, subscribe_keyboard
 from freelance_bot.bot.keyboards import available_orders_keyboard, order_keyboard
 from freelance_bot.bot.keyboards import back_to_main_menu_keyboard, freelancer_menu_keyboard
-from freelance_bot.bot.db_functions import get_or_create_customer, get_customer, get_tariff
+from freelance_bot.bot.db_functions import get_or_create_customer, get_customer, get_tariff, create_order
 from freelance_bot.bot.db_functions import set_tariff_to_customer
 
 from freelance_bot.models import Customer, Order
 
-ROLE, CUSTOMER, TARIFF_PAYMENT, FREELANCER, NOT_FREELANCER, CHOOSING_ORDER = range(6)
+ROLE, CUSTOMER, TARIFF_PAYMENT, CREATE_ORDERS_DESCRIPTION, GET_ORDER_FILE, COLLECT_ORDER_DATA, FREELANCER, NOT_FREELANCER, CHOOSING_ORDER = range(9)
 
 
 def start(update: Update, context: CallbackContext):
@@ -86,12 +87,45 @@ def subscribe_menu(update: Update, context: CallbackContext):
     return TARIFF_PAYMENT
 
 
-def create_order(update: Update, context: CallbackContext):
+def get_orders_title(update: Update, context: CallbackContext):
     query = update.callback_query
-    query.edit_message_text(
-        'Создание заказа.'
-    )
-    return ROLE
+    query.edit_message_text('Введите название заказа:')
+
+    return CREATE_ORDERS_DESCRIPTION
+
+
+def get_orders_description(update: Update, context: CallbackContext):
+    user_data = context.user_data
+    order_title = update.message.text
+    user_data['order_title'] = order_title
+
+    update.message.reply_text('Введите описание заказа:')
+
+    return GET_ORDER_FILE
+
+
+def get_order_file(update: Update, context: CallbackContext):
+    user_data = context.user_data
+    order_description = update.message.text
+    user_data['order_description'] = order_description
+
+    update.message.reply_text('Если необходимо, приложите файл:')
+
+    return COLLECT_ORDER_DATA
+
+
+def collect_order_data(update: Update, context: CallbackContext):
+    if update.message.document:
+        customer_id = update.effective_user.id
+        order_title = context.user_data['order_title']
+        order_description = context.user_data['order_description']
+        file = context.bot.get_file(update.message.document)
+        telegram_file_id = file.file_id
+
+        create_order(order_title, order_description, telegram_file_id, customer_id)
+
+        update.message.reply_text('Ваш заказ создан!')
+        return ROLE
 
 
 def show_customer_orders(update: Update, context: CallbackContext):
@@ -148,14 +182,13 @@ def show_order_description(update: Update, context: CallbackContext):
     query = update.callback_query
     order = Order.objects.get(name=query.data)
     keyboard = order_keyboard()
-    file = InputFile(order.file)
     text = f'''
 {order.name}
 
 {order.description}    
     '''
 
-    query.message.reply_document(document=file, caption=text, reply_markup=keyboard)
+    query.message.reply_document(document=order.telegram_file_id, caption=text, reply_markup=keyboard)
 
 
 def tariff_payment(update: Update, context: CallbackContext):
@@ -196,7 +229,7 @@ def start_bot():
                 [
                     CallbackQueryHandler(subscribe_menu, pattern='choose_tariff'),
                     CallbackQueryHandler(subscribe_menu, pattern='subscribe'),
-                    CallbackQueryHandler(create_order, pattern='create_order'),
+                    CallbackQueryHandler(get_orders_title, pattern='create_order'),
                     CallbackQueryHandler(show_customer_orders, pattern='customer_orders'),
                     CallbackQueryHandler(main_menu, pattern='back_to_main_menu')
                 ],
@@ -205,6 +238,18 @@ def start_bot():
                     CallbackQueryHandler(tariff_payment, pattern='economy_tariff'),
                     CallbackQueryHandler(tariff_payment, pattern='standart_tariff'),
                     CallbackQueryHandler(tariff_payment, pattern='vip_tariff')
+                ],
+            CREATE_ORDERS_DESCRIPTION:
+                [
+                    MessageHandler(Filters.text, get_orders_description)
+                ],
+            GET_ORDER_FILE:
+                [
+                    MessageHandler(Filters.text, get_order_file)
+                ],
+            COLLECT_ORDER_DATA:
+                [
+                    MessageHandler(Filters.document, collect_order_data)
                 ],
             FREELANCER:
                 [
