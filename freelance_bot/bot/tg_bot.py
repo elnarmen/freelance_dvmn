@@ -221,7 +221,7 @@ def tariff_payment(update: Update, context: CallbackContext):
     )
 
     user_id = update.effective_user
-    # set_tariff_to_customer(user_id['id'], tariff)
+    set_tariff_to_customer(user_id['id'], tariff)
 
     customer = get_customer(
         telegram_id=user_id['id']
