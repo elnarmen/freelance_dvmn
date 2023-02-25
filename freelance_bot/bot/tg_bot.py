@@ -11,7 +11,7 @@ from freelance_bot.bot.keyboards import main_menu_keyboard, customer_menu_keyboa
 from freelance_bot.bot.keyboards import orders_keyboard, available_order_keyboard, freelancer_order_keyboard
 from freelance_bot.bot.keyboards import back_to_main_menu_keyboard, freelancer_menu_keyboard
 from freelance_bot.bot.db_functions import get_or_create_customer, get_customer, get_tariff, create_order
-from freelance_bot.bot.db_functions import set_tariff_to_customer
+from freelance_bot.bot.db_functions import set_tariff_to_customer, create_order_without_file
 
 from freelance_bot.models import Customer, Order
 
@@ -49,6 +49,8 @@ def customer_menu(update: Update, context: CallbackContext):
         nickname=user_id['username']
     )
 
+    context.user_data['telegram_id'] = user_id['id']
+
     keyboard = customer_menu_keyboard(customer)
     query.edit_message_reply_markup(keyboard)
     return CUSTOMER
@@ -64,6 +66,8 @@ def freelancer_menu(update: Update, context: CallbackContext):
         last_name=user_id['last_name'],
         nickname=user_id['username']
     )
+
+    context.user_data['telegram_id'] = user_id['id']
 
     if not customer.is_freelancer:
         keyboard = back_to_main_menu_keyboard()
@@ -109,7 +113,10 @@ def get_order_file(update: Update, context: CallbackContext):
     order_description = update.message.text
     user_data['order_description'] = order_description
 
-    update.message.reply_text('Если необходимо, приложите файл:')
+    update.message.reply_text(
+        'Если необходимо, приложите файл. '
+        'Если файла нет, то напишите об этом.'
+    )
 
     return COLLECT_ORDER_DATA
 
@@ -124,8 +131,42 @@ def collect_order_data(update: Update, context: CallbackContext):
 
         create_order(order_title, order_description, telegram_file_id, customer_id)
 
-        update.message.reply_text('Ваш заказ создан!')
-        return ROLE
+        customer = get_customer(
+            telegram_id=customer_id
+        )
+        keyboard = customer_menu_keyboard(customer)
+        
+        update.message.reply_text(
+            'Ваш заказ создан!',
+            reply_markup=keyboard
+        )
+
+        return CUSTOMER
+
+
+def collect_order_data_without_file(update: Update, context: CallbackContext):
+    if update.message.text:
+        customer_id = update.effective_user.id
+        order_title = context.user_data['order_title']
+        order_description = context.user_data['order_description']
+
+        create_order_without_file(
+            order_title,
+            order_description,
+            customer_id
+        )
+
+        customer = get_customer(
+            telegram_id=customer_id
+        )
+        keyboard = customer_menu_keyboard(customer)
+        
+        update.message.reply_text(
+            'Ваш заказ создан!',
+            reply_markup=keyboard
+        )
+
+        return CUSTOMER
 
 
 def show_customer_orders(update: Update, context: CallbackContext):
@@ -208,23 +249,22 @@ def tariff_payment(update: Update, context: CallbackContext):
     query = update.callback_query
     tariff = get_tariff(query.data)
 
-    chat_id = update.callback_query.message.chat.id
-    title = "Оплата тарифа"
-    description = "Оплата тарифа заказчиком"
-    payload = "Custom-Payload"
-    provider_token = settings.PAYMENT_PROVIDER_TOKEN
-    currency = "rub"
-    prices = [LabeledPrice("Сумма заказа", tariff.price * 100)]
+    # chat_id = update.callback_query.message.chat.id
+    # title = "Оплата тарифа"
+    # description = "Оплата тарифа заказчиком"
+    # payload = "Custom-Payload"
+    # provider_token = settings.PAYMENT_PROVIDER_TOKEN
+    # currency = "rub"
+    # prices = [LabeledPrice("Сумма заказа", tariff.price * 100)]
 
-    context.bot.send_invoice(
-        chat_id, title, description, payload, provider_token, currency, prices
-    )
+    # context.bot.send_invoice(
+    #     chat_id, title, description, payload, provider_token, currency, prices
+    # )
 
-    user_id = update.effective_user
-    set_tariff_to_customer(user_id['id'], tariff)
+    set_tariff_to_customer(context.user_data['telegram_id'], tariff)
 
     customer = get_customer(
-        telegram_id=user_id['id']
+        telegram_id=context.user_data['telegram_id']
     )
     keyboard = customer_menu_keyboard(customer)
 
@@ -281,8 +321,9 @@ def start_bot():
                     MessageHandler(Filters.text, get_order_file)
                 ],
             COLLECT_ORDER_DATA:
-                [
-                    MessageHandler(Filters.document, collect_order_data)
+                [   
+                    MessageHandler(Filters.document, collect_order_data),
+                    MessageHandler(Filters.text, collect_order_data_without_file)
                 ],
             FREELANCER:
                 [
