@@ -181,7 +181,7 @@ def show_customer_orders(update: Update, context: CallbackContext):
 def request_freelanser_orders(update: Update, context: CallbackContext):
     user_id = update.effective_user
     customer = Customer.objects.get(telegram_id=user_id['id'])
-    orders = customer.customer_orders.all()
+    orders = customer.freelancer_orders.all()
     orders_per_page = 5
     context.user_data['orders'] = list(chunked(orders, orders_per_page))
     context.user_data['is_available_orders'] = False
@@ -233,12 +233,17 @@ def show_order_description(update: Update, context: CallbackContext):
 {order.description}    
     '''
     try:
-        file = InputFile(order.file)
-        query.message.reply_document(
-            document=file,
-            caption=text,
-            reply_markup=keyboard
-        )
+        if order.telegram_file_id:
+            query.message.reply_document(
+                document=order.telegram_file_id,
+                caption=text,
+                reply_markup=keyboard
+            )
+        else:
+            query.message.reply_text(
+                text=text,
+                reply_markup=keyboard
+            )
     except ValueError: 
         query.message.reply_text(text=text, reply_markup=keyboard)
     except FileNotFoundError:
