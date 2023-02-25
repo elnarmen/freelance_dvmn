@@ -94,7 +94,7 @@ class Order(models.Model):
         'Описание заказа'
     )
 
-    file = models.FileField(
+    file = models.URLField(
         'Файл',
         null=True,
         blank=True
