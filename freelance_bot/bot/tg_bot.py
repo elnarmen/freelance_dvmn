@@ -10,12 +10,24 @@ from more_itertools import chunked
 from freelance_bot.bot.keyboards import main_menu_keyboard, customer_menu_keyboard, subscribe_keyboard
 from freelance_bot.bot.keyboards import orders_keyboard, available_order_keyboard, freelancer_order_keyboard
 from freelance_bot.bot.keyboards import back_to_main_menu_keyboard, freelancer_menu_keyboard
+from freelance_bot.bot.keyboards import get_document_keyboard
 from freelance_bot.bot.db_functions import get_or_create_customer, get_customer, get_tariff, create_order
 from freelance_bot.bot.db_functions import set_tariff_to_customer, create_order_without_file
 
 from freelance_bot.models import Customer, Order
 
-ROLE, CUSTOMER, TARIFF_PAYMENT, CREATE_ORDERS_DESCRIPTION, GET_ORDER_FILE, COLLECT_ORDER_DATA, FREELANCER, NOT_FREELANCER, CHOOSING_ORDER = range(9)
+(
+    ROLE,
+    CUSTOMER,
+    TARIFF_PAYMENT,
+    CREATE_ORDERS_DESCRIPTION,
+    GET_ORDER_FILE,
+    COLLECT_ORDER_DATA,
+    FREELANCER,
+    NOT_FREELANCER,
+    CHOOSING_ORDER,
+    GET_DOCUMENT
+) = range(10)
 
 
 def start(update: Update, context: CallbackContext):
@@ -108,17 +120,27 @@ def get_orders_description(update: Update, context: CallbackContext):
     return GET_ORDER_FILE
 
 
-def get_order_file(update: Update, context: CallbackContext):
+def get_document(update: Update, context: CallbackContext):
     user_data = context.user_data
     order_description = update.message.text
     user_data['order_description'] = order_description
 
+    keyboard = get_document_keyboard()
     update.message.reply_text(
-        'Если необходимо, приложите файл. '
-        'Если файла нет, то напишите об этом.'
+        'Если необходимо, приложите файл:',
+        reply_markup=keyboard
     )
 
     return COLLECT_ORDER_DATA
+
+
+def get_order_file(update: Update, context: CallbackContext):
+    query = update.callback_query
+    query.edit_message_text(
+        'Приложите файл:',
+    )
+
+    return GET_DOCUMENT
 
 
 def collect_order_data(update: Update, context: CallbackContext):
@@ -145,28 +167,28 @@ def collect_order_data(update: Update, context: CallbackContext):
 
 
 def collect_order_data_without_file(update: Update, context: CallbackContext):
-    if update.message.text:
-        customer_id = update.effective_user.id
-        order_title = context.user_data['order_title']
-        order_description = context.user_data['order_description']
+    query = update.callback_query
+    customer_id = update.effective_user.id
+    order_title = context.user_data['order_title']
+    order_description = context.user_data['order_description']
 
-        create_order_without_file(
-            order_title,
-            order_description,
-            customer_id
-        )
+    create_order_without_file(
+        order_title,
+        order_description,
+        customer_id
+    )
 
-        customer = get_customer(
-            telegram_id=customer_id
-        )
-        keyboard = customer_menu_keyboard(customer)
-        
-        update.message.reply_text(
-            'Ваш заказ создан!',
-            reply_markup=keyboard
-        )
+    customer = get_customer(
+        telegram_id=customer_id
+    )
+    keyboard = customer_menu_keyboard(customer)
+    
+    query.edit_message_text(
+        'Ваш заказ создан!',
+        reply_markup=keyboard
+    )
 
-        return CUSTOMER
+    return CUSTOMER
 
 
 def show_customer_orders(update: Update, context: CallbackContext):
@@ -217,7 +239,10 @@ def show_orders(update: Update, context: CallbackContext):
 
     orders = context.user_data['current_orders']
     keyboard = orders_keyboard(*orders)
-    query.edit_message_reply_markup(keyboard)
+    query.message.reply_text(
+        text='Ваши заказы для выполнения:',
+        reply_markup=keyboard
+    )
     return FREELANCER
 
 
@@ -244,6 +269,8 @@ def show_order_description(update: Update, context: CallbackContext):
                 text=text,
                 reply_markup=keyboard
             )
+
+        return FREELANCER
     except ValueError: 
         query.message.reply_text(text=text, reply_markup=keyboard)
     except FileNotFoundError:
@@ -323,12 +350,17 @@ def start_bot():
                 ],
             GET_ORDER_FILE:
                 [
-                    MessageHandler(Filters.text, get_order_file)
+                    MessageHandler(Filters.text, get_document)
                 ],
             COLLECT_ORDER_DATA:
                 [   
-                    MessageHandler(Filters.document, collect_order_data),
-                    MessageHandler(Filters.text, collect_order_data_without_file)
+                    CallbackQueryHandler(get_order_file, pattern='attach_file'),
+                    CallbackQueryHandler(
+                        collect_order_data_without_file,
+                        pattern='not_attach_file'
+                    )
+                    # MessageHandler(Filters.document, collect_order_data),
+                    # MessageHandler(Filters.text, collect_order_data_without_file)
                 ],
             FREELANCER:
                 [
@@ -345,6 +377,10 @@ def start_bot():
             NOT_FREELANCER:
                 [
                     CallbackQueryHandler(main_menu, pattern='back_to_main_menu')
+                ],
+            GET_DOCUMENT:
+                [
+                    MessageHandler(Filters.document, collect_order_data)
                 ],
         },
         fallbacks=[CommandHandler('rerun', start)],
