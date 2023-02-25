@@ -32,4 +32,18 @@ def set_tariff_to_customer(telegram_id, tariff):
 
 def create_order(name, description, telegram_file_id, customer_id):
     customer = Customer.objects.get(telegram_id=customer_id)
-    Order.objects.create(name=name, description=description, telegram_file_id=telegram_file_id, customer=customer)
+    Order.objects.create(
+        name=name,
+        description=description,
+        telegram_file_id=telegram_file_id, 
+        customer=customer
+    )
+
+
+def create_order_without_file(name, description, customer_id):
+    customer = Customer.objects.get(telegram_id=customer_id)
+    Order.objects.create(
+        name=name,
+        description=description,
+        customer=customer
+    )
