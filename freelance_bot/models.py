@@ -121,7 +121,7 @@ class Order(models.Model):
         max_length=20,
         choices=STATUS_CHOICES,
         db_index=True,
-        blank=True
+        default=CREATE
     )
 
     class Meta:
