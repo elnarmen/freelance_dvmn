@@ -1,4 +1,4 @@
-from telegram import Update, InputFile
+from telegram import Update, InputFile, LabeledPrice
 from telegram.ext import CallbackContext, Updater, ConversationHandler, CommandHandler, CallbackQueryHandler, \
     MessageHandler, Filters
 from django.conf import settings
@@ -198,7 +198,9 @@ def show_order_description(update: Update, context: CallbackContext):
             caption=text,
             reply_markup=keyboard
         )
-    except ValueError, FileNotFoundError:
+    except ValueError: 
+        query.message.reply_text(text=text, reply_markup=keyboard)
+    except FileNotFoundError:
         query.message.reply_text(text=text, reply_markup=keyboard)
 
 
@@ -206,10 +208,20 @@ def tariff_payment(update: Update, context: CallbackContext):
     query = update.callback_query
     tariff = get_tariff(query.data)
 
-    # Здесь будет механизм оплаты
+    chat_id = update.callback_query.message.chat.id
+    title = "Оплата тарифа"
+    description = "Оплата тарифа заказчиком"
+    payload = "Custom-Payload"
+    provider_token = settings.PAYMENT_PROVIDER_TOKEN
+    currency = "rub"
+    prices = [LabeledPrice("Сумма заказа", tariff.price * 100)]
+
+    context.bot.send_invoice(
+        chat_id, title, description, payload, provider_token, currency, prices
+    )
 
     user_id = update.effective_user
-    set_tariff_to_customer(user_id['id'], tariff)
+    # set_tariff_to_customer(user_id['id'], tariff)
 
     customer = get_customer(
         telegram_id=user_id['id']
@@ -222,6 +234,13 @@ def tariff_payment(update: Update, context: CallbackContext):
     )
 
     return CUSTOMER
+
+def precheckout_callback(update: Update, context: CallbackContext):
+    query = update.pre_checkout_query
+    if query.invoice_payload != 'Custom-Payload':
+        query.answer(ok=False, error_message="Что-то пошло не так...")
+    else:
+        query.answer(ok=True)
 
 
 def save_freelancer_order():
