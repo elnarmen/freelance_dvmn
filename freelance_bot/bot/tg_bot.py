@@ -120,9 +120,9 @@ def collect_order_data(update: Update, context: CallbackContext):
         order_title = context.user_data['order_title']
         order_description = context.user_data['order_description']
         file = context.bot.get_file(update.message.document)
-        file_path = file.file_path
+        telegram_file_id = file.file_id
 
-        create_order(order_title, order_description, file_path, customer_id)
+        create_order(order_title, order_description, telegram_file_id, customer_id)
 
         update.message.reply_text('Ваш заказ создан!')
         return ROLE
@@ -182,14 +182,13 @@ def show_order_description(update: Update, context: CallbackContext):
     query = update.callback_query
     order = Order.objects.get(name=query.data)
     keyboard = order_keyboard()
-    file = InputFile(order.file)
     text = f'''
 {order.name}
 
 {order.description}    
     '''
 
-    query.message.reply_document(document=file, caption=text, reply_markup=keyboard)
+    query.message.reply_document(document=order.telegram_file_id, caption=text, reply_markup=keyboard)
 
 
 def tariff_payment(update: Update, context: CallbackContext):

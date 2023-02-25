@@ -30,6 +30,6 @@ def set_tariff_to_customer(telegram_id, tariff):
     Customer.objects.filter(telegram_id=telegram_id).update(tariff=tariff)
 
 
-def create_order(name, description, file, customer_id):
+def create_order(name, description, telegram_file_id, customer_id):
     customer = Customer.objects.get(telegram_id=customer_id)
-    Order.objects.create(name=name, description=description, file=file, customer=customer)
+    Order.objects.create(name=name, description=description, telegram_file_id=telegram_file_id, customer=customer)

@@ -94,8 +94,9 @@ class Order(models.Model):
         'Описание заказа'
     )
 
-    file = models.URLField(
-        'Файл',
+    telegram_file_id = models.CharField(
+        'ID файла в телеграм',
+        max_length=200,
         null=True,
         blank=True
     )
