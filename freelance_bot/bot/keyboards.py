@@ -52,7 +52,7 @@ def back_to_main_menu_keyboard():
     return InlineKeyboardMarkup(keyboard)
 
 
-def available_orders_keyboard(*orders):
+def orders_keyboard(*orders):
     keyboard = [[
         InlineKeyboardButton(
             f"{order.name}",
@@ -72,10 +72,20 @@ def available_orders_keyboard(*orders):
     return InlineKeyboardMarkup(keyboard)
 
 
-def order_keyboard():
+def available_order_keyboard():
     keyboard = [
-        [InlineKeyboardButton("Взять в работу", callback_data="take_order")],
-        [InlineKeyboardButton("Назад", callback_data='back')]
+        [
+            InlineKeyboardButton("Взять в работу", callback_data="take_order"),
+            InlineKeyboardButton("Назад", callback_data="back")
+        ]
+    ]
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def freelancer_order_keyboard():
+    keyboard = [
+        [InlineKeyboardButton("Назад", callback_data="back")]
     ]
 
     return InlineKeyboardMarkup(keyboard)
