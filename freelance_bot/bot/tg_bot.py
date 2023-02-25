@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from more_itertools import chunked
 
 from freelance_bot.bot.keyboards import main_menu_keyboard, customer_menu_keyboard, subscribe_keyboard
-from freelance_bot.bot.keyboards import available_orders_keyboard, order_keyboard
+from freelance_bot.bot.keyboards import orders_keyboard, available_order_keyboard, freelancer_order_keyboard
 from freelance_bot.bot.keyboards import back_to_main_menu_keyboard, freelancer_menu_keyboard
 from freelance_bot.bot.db_functions import get_or_create_customer, get_customer, get_tariff
 from freelance_bot.bot.db_functions import set_tariff_to_customer
@@ -39,7 +39,7 @@ def main_menu(update: Update, context: CallbackContext):
 
 def customer_menu(update: Update, context: CallbackContext):
     query = update.callback_query
-    
+
     user_id = update.effective_user
     customer = get_or_create_customer(
         telegram_id=user_id['id'],
@@ -55,7 +55,7 @@ def customer_menu(update: Update, context: CallbackContext):
 
 def freelancer_menu(update: Update, context: CallbackContext):
     query = update.callback_query
-    
+
     user_id = update.effective_user
     customer = get_or_create_customer(
         telegram_id=user_id['id'],
@@ -103,23 +103,35 @@ def show_customer_orders(update: Update, context: CallbackContext):
     return ROLE
 
 
-def show_freelancer_orders(update: Update, context: CallbackContext):
-    query = update.callback_query
-    query.edit_message_text(
-        'Заказы фрилансера.'
-    )
+# def show_freelancer_orders(update: Update, context: CallbackContext):
+#     query = update.callback_query
+#     query.edit_message_text(
+#         'Заказы фрилансера.'
+#     )
+#
+#
+#     return ROLE
 
-    return ROLE
+
+def request_freelanser_orders(update: Update, context: CallbackContext):
+    user_id = update.effective_user
+    customer = Customer.objects.get(telegram_id=user_id['id'])
+    orders = customer.customer_orders.all()
+    orders_per_page = 5
+    context.user_data['orders'] = list(chunked(orders, orders_per_page))
+    context.user_data['is_available_orders'] = False
+    show_orders(update, context)
 
 
 def request_available_orders(update: Update, context: CallbackContext):
-    orders = Order.objects.all()#filter(status=Order.CREATE)
+    orders = Order.objects.filter(status=Order.CREATE)
     orders_per_page = 5
     context.user_data['orders'] = list(chunked(orders, orders_per_page))
-    show_available_orders(update, context)
+    context.user_data['is_available_orders'] = True
+    show_orders(update, context)
 
 
-def show_available_orders(update: Update, context: CallbackContext):
+def show_orders(update: Update, context: CallbackContext):
     query = update.callback_query
     current_orders_index = context.user_data.get('current_orders_index', 0)
     if query.data == 'previous' and current_orders_index > 0:
@@ -133,13 +145,13 @@ def show_available_orders(update: Update, context: CallbackContext):
     if 0 <= current_orders_index < len(context.user_data['orders']):
         context.user_data['current_orders'] = context.user_data['orders'][current_orders_index]
     else:
-        text = 'Вы просмотрели все заказы.'
+        text = 'Заказов нет'
         keyboard = freelancer_menu_keyboard()
-        update.message.reply_text(text, reply_markup=keyboard)
+        query.edit_message_text(text, reply_markup=keyboard)
         return CHOOSING_ORDER
 
     orders = context.user_data['current_orders']
-    keyboard = available_orders_keyboard(*orders)
+    keyboard = orders_keyboard(*orders)
     query.edit_message_reply_markup(keyboard)
     return FREELANCER
 
@@ -147,15 +159,22 @@ def show_available_orders(update: Update, context: CallbackContext):
 def show_order_description(update: Update, context: CallbackContext):
     query = update.callback_query
     order = Order.objects.get(name=query.data)
-    keyboard = order_keyboard()
-    file = InputFile(order.file)
+    keyboard = available_order_keyboard() if context.user_data['is_available_orders'] \
+        else freelancer_order_keyboard()
     text = f'''
 {order.name}
-
+    
 {order.description}    
     '''
-
-    query.message.reply_document(document=file, caption=text, reply_markup=keyboard)
+    try:
+        file = InputFile(order.file)
+        query.message.reply_document(
+            document=file,
+            caption=text,
+            reply_markup=keyboard
+        )
+    except ValueError:
+        query.message.reply_text(text=text, reply_markup=keyboard)
 
 
 def tariff_payment(update: Update, context: CallbackContext):
@@ -179,6 +198,9 @@ def tariff_payment(update: Update, context: CallbackContext):
 
     return CUSTOMER
 
+
+def save_freelancer_order():
+    pass
 
 def start_bot():
     token = settings.TG_TOKEN
@@ -209,13 +231,13 @@ def start_bot():
             FREELANCER:
                 [
                     CallbackQueryHandler(request_available_orders, pattern='choose_order'),
-                    CallbackQueryHandler(show_freelancer_orders, pattern='freelancer_orders'),
+                    CallbackQueryHandler(request_freelanser_orders, pattern='freelancer_orders'),
                     CallbackQueryHandler(main_menu, pattern='back_to_main_menu'),
-                    CallbackQueryHandler(show_available_orders, pattern='next'),
+                    CallbackQueryHandler(show_orders, pattern='next'),
                     CallbackQueryHandler(freelancer_menu, pattern='freelancer'),
                     CallbackQueryHandler(freelancer_menu, pattern='take_order'),
-                    CallbackQueryHandler(show_available_orders, pattern='previous'),
-                    CallbackQueryHandler(show_available_orders, pattern='back'),
+                    CallbackQueryHandler(show_orders, pattern='previous'),
+                    CallbackQueryHandler(show_orders, pattern='back'),
                     CallbackQueryHandler(show_order_description, pattern=None)
                 ],
             NOT_FREELANCER:
