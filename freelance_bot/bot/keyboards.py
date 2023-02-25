@@ -50,3 +50,32 @@ def back_to_main_menu_keyboard():
         [InlineKeyboardButton("К выбору роли", callback_data='back_to_main_menu')]
     ]
     return InlineKeyboardMarkup(keyboard)
+
+
+def available_orders_keyboard(*orders):
+    keyboard = [[
+        InlineKeyboardButton(
+            f"{order.name}",
+            callback_data=f"{order.name}")
+    ] for order in orders]
+
+    if len(orders) == 5:
+        keyboard.append([
+            InlineKeyboardButton("Назад", callback_data="previous"),
+            InlineKeyboardButton("Еще", callback_data="next"),
+        ])
+        keyboard.append([InlineKeyboardButton("Главное меню", callback_data="freelancer")])
+    else:
+        keyboard.append([InlineKeyboardButton("Назад", callback_data="previous")])
+        keyboard.append([InlineKeyboardButton("Главное меню", callback_data="freelancer")])
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def order_keyboard():
+    keyboard = [
+        [InlineKeyboardButton("Взять в работу", callback_data="take_order")],
+        [InlineKeyboardButton("Назад", callback_data='back')]
+    ]
+
+    return InlineKeyboardMarkup(keyboard)
