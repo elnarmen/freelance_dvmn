@@ -359,8 +359,6 @@ def start_bot():
                         collect_order_data_without_file,
                         pattern='not_attach_file'
                     )
-                    # MessageHandler(Filters.document, collect_order_data),
-                    # MessageHandler(Filters.text, collect_order_data_without_file)
                 ],
             FREELANCER:
                 [
