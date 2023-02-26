@@ -245,7 +245,10 @@ def start_bot():
                     CallbackQueryHandler(main_menu, pattern='back_to_main_menu')
                 ],
         },
-        fallbacks=[CommandHandler('rerun', start)],
+        fallbacks=[
+            CommandHandler('rerun', start),
+            CommandHandler('start', start)
+        ]
     )
     dispatcher.add_handler(conv_handler)
     updater.start_polling()
