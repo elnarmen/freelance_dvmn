@@ -226,9 +226,15 @@ def show_orders(update: Update, context: CallbackContext):
         current_orders_index += 1
         context.user_data['current_orders_index'] = current_orders_index
 
+    if query.data == "cancel_order":
+        keyboard = freelancer_menu_keyboard()
+        query.edit_message_reply_markup(keyboard)
+        return CHOOSING_ORDER
+
     if 0 <= current_orders_index < len(context.user_data['orders']):
         context.user_data['current_orders'] = context.user_data['orders'][current_orders_index]
     else:
+        print(query.data)
         text = 'Заказов нет'
         keyboard = freelancer_menu_keyboard()
         query.edit_message_text(text, reply_markup=keyboard)
@@ -246,7 +252,7 @@ def show_orders(update: Update, context: CallbackContext):
 def show_order_description(update: Update, context: CallbackContext):
     query = update.callback_query
     order = Order.objects.get(name=query.data)
-    keyboard = available_order_keyboard() if context.user_data['is_available_orders'] \
+    keyboard = available_order_keyboard() if context.user_data['is_available_orders']\
         else freelancer_order_keyboard()
 
     text = f'''
@@ -313,7 +319,6 @@ def precheckout_callback(update: Update, context: CallbackContext):
 
 
 def save_freelancer_order(update: Update, context: CallbackContext):
-    query = update.callback_query
     user_id = update.effective_user['id']
     freelancer = Customer.objects.get(telegram_id=user_id)
     order = Order.objects.get(name=context.user_data['viewed_order_title'])
@@ -321,6 +326,16 @@ def save_freelancer_order(update: Update, context: CallbackContext):
     order.freelancer = freelancer
     order.save()
     return main_menu(update, context)
+
+
+def cancel_freelancer_order(update: Update, context: CallbackContext):
+    user_id = update.effective_user['id']
+    order = Order.objects.get(name=context.user_data['viewed_order_title'])
+    order.status = 'create'
+    order.freelancer = None
+    order.save()
+    return request_freelanser_orders(update, context)
+
 
 def start_bot():
     token = settings.TG_TOKEN
@@ -374,6 +389,7 @@ def start_bot():
                     CallbackQueryHandler(save_freelancer_order, pattern='take_order'),
                     CallbackQueryHandler(show_orders, pattern='previous'),
                     CallbackQueryHandler(show_orders, pattern='back'),
+                    CallbackQueryHandler(cancel_freelancer_order, pattern='cancel_order'),
                     CallbackQueryHandler(show_order_description, pattern=None)
                 ],
             NOT_FREELANCER:

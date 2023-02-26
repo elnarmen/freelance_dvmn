@@ -85,7 +85,8 @@ def available_order_keyboard():
 
 def freelancer_order_keyboard():
     keyboard = [
-        [InlineKeyboardButton("Назад", callback_data="back")]
+        [InlineKeyboardButton("Назад", callback_data="back")],
+        [InlineKeyboardButton("Отказаться от заказа", callback_data="cancel_order")]
     ]
 
     return InlineKeyboardMarkup(keyboard)
