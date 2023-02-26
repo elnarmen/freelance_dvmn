@@ -6,6 +6,7 @@ from django.conf import settings
 import os
 from dotenv import load_dotenv
 from more_itertools import chunked
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from freelance_bot.bot.keyboards import main_menu_keyboard, customer_menu_keyboard, subscribe_keyboard
 from freelance_bot.bot.keyboards import orders_keyboard, available_order_keyboard, freelancer_order_keyboard
@@ -234,14 +235,23 @@ def show_orders(update: Update, context: CallbackContext):
     if 0 <= current_orders_index < len(context.user_data['orders']):
         context.user_data['current_orders'] = context.user_data['orders'][current_orders_index]
     else:
-        print(query.data)
+        if current_orders_index > 0:
+            text = 'Вы просмотрели все заказы'
+            keyboard = [
+                [InlineKeyboardButton("Назад", callback_data='previous')],
+                [InlineKeyboardButton("Вернуться в меню", callback_data='freelancer')]
+            ]
+            query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+            return FREELANCER
         text = 'Заказов нет'
-        keyboard = freelancer_menu_keyboard()
-        query.edit_message_text(text, reply_markup=keyboard)
-        return CHOOSING_ORDER
+        keyboard = [
+            [InlineKeyboardButton("Вернуться в меню", callback_data='freelancer')],
+        ]
+        query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+        return FREELANCER
 
     orders = context.user_data['current_orders']
-    keyboard = orders_keyboard(*orders)
+    keyboard = orders_keyboard(*orders, current_orders_index=current_orders_index)
     query.message.reply_text(
         text='Ваши заказы для выполнения:',
         reply_markup=keyboard
@@ -325,11 +335,10 @@ def save_freelancer_order(update: Update, context: CallbackContext):
     order.status = 'work'
     order.freelancer = freelancer
     order.save()
-    return main_menu(update, context)
+    return freelancer_menu(update, context)
 
 
 def cancel_freelancer_order(update: Update, context: CallbackContext):
-    user_id = update.effective_user['id']
     order = Order.objects.get(name=context.user_data['viewed_order_title'])
     order.status = 'create'
     order.freelancer = None

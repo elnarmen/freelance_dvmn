@@ -52,7 +52,7 @@ def back_to_main_menu_keyboard():
     return InlineKeyboardMarkup(keyboard)
 
 
-def orders_keyboard(*orders):
+def orders_keyboard(*orders, current_orders_index=None):
     keyboard = [[
         InlineKeyboardButton(
             f"{order.name}",
@@ -60,16 +60,21 @@ def orders_keyboard(*orders):
     ] for order in orders]
 
     if len(orders) == 5:
-        keyboard.append([
-            InlineKeyboardButton("Назад", callback_data="previous"),
-            InlineKeyboardButton("Еще", callback_data="next"),
-        ])
+        if current_orders_index == 0:
+            keyboard.append([InlineKeyboardButton("Еще", callback_data="next")])
+        else:
+            keyboard.append([
+                InlineKeyboardButton("Назад", callback_data="previous"),
+                InlineKeyboardButton("Еще", callback_data="next"),
+            ])
         keyboard.append([InlineKeyboardButton("Главное меню", callback_data="freelancer")])
     else:
-        keyboard.append([InlineKeyboardButton("Назад", callback_data="previous")])
+        if current_orders_index != 0:
+            keyboard.append([InlineKeyboardButton("Назад", callback_data="previous")])
         keyboard.append([InlineKeyboardButton("Главное меню", callback_data="freelancer")])
 
     return InlineKeyboardMarkup(keyboard)
+
 
 
 def available_order_keyboard():
