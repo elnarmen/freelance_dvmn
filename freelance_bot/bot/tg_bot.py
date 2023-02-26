@@ -1,6 +1,6 @@
 from telegram import Update, InputFile, LabeledPrice
 from telegram.ext import CallbackContext, Updater, ConversationHandler, CommandHandler, CallbackQueryHandler, \
-    MessageHandler, Filters
+    MessageHandler, Filters, PreCheckoutQueryHandler
 from django.conf import settings
 
 import os
@@ -50,7 +50,6 @@ def main_menu(update: Update, context: CallbackContext):
 
 def customer_menu(update: Update, context: CallbackContext):
     query = update.callback_query
-
     user_id = update.effective_user
     customer = get_or_create_customer(
         telegram_id=user_id['id'],
@@ -62,7 +61,10 @@ def customer_menu(update: Update, context: CallbackContext):
     context.user_data['telegram_id'] = user_id['id']
 
     keyboard = customer_menu_keyboard(customer)
-    query.edit_message_reply_markup(keyboard)
+    if query:
+        query.edit_message_reply_markup(keyboard)
+    else:
+        update.message.reply_text('Оплата прошла успешно.', reply_markup=keyboard)
     return CUSTOMER
 
 
@@ -155,7 +157,7 @@ def collect_order_data(update: Update, context: CallbackContext):
             telegram_id=customer_id
         )
         keyboard = customer_menu_keyboard(customer)
-        
+
         update.message.reply_text(
             'Ваш заказ создан!',
             reply_markup=keyboard
@@ -180,7 +182,7 @@ def collect_order_data_without_file(update: Update, context: CallbackContext):
         telegram_id=customer_id
     )
     keyboard = customer_menu_keyboard(customer)
-    
+
     query.edit_message_text(
         'Ваш заказ создан!',
         reply_markup=keyboard
@@ -262,13 +264,13 @@ def show_orders(update: Update, context: CallbackContext):
 def show_order_description(update: Update, context: CallbackContext):
     query = update.callback_query
     order = Order.objects.get(name=query.data)
-    keyboard = available_order_keyboard() if context.user_data['is_available_orders']\
-        else freelancer_order_keyboard()
+    keyboard = available_order_keyboard() if \
+        context.user_data['is_available_orders'] else freelancer_order_keyboard()
 
     text = f'''
 {order.name}
-    
-{order.description}    
+
+{order.description}
     '''
     try:
         if order.telegram_file_id:
@@ -284,7 +286,7 @@ def show_order_description(update: Update, context: CallbackContext):
             )
         context.user_data['viewed_order_title'] = query.data
         return FREELANCER
-    except ValueError: 
+    except ValueError:
         query.message.reply_text(text=text, reply_markup=keyboard)
     except FileNotFoundError:
         query.message.reply_text(text=text, reply_markup=keyboard)
@@ -293,32 +295,21 @@ def show_order_description(update: Update, context: CallbackContext):
 def tariff_payment(update: Update, context: CallbackContext):
     query = update.callback_query
     tariff = get_tariff(query.data)
+    context.user_data['tariff'] = tariff
+    chat_id = update.callback_query.message.chat.id
+    title = "Оплата тарифа"
+    description = "Оплата тарифа заказчиком"
+    payload = "Custom-Payload"
+    provider_token = settings.PAYMENT_PROVIDER_TOKEN
+    currency = "rub"
+    prices = [LabeledPrice("Сумма заказа", tariff.price * 100)]
 
-    # chat_id = update.callback_query.message.chat.id
-    # title = "Оплата тарифа"
-    # description = "Оплата тарифа заказчиком"
-    # payload = "Custom-Payload"
-    # provider_token = settings.PAYMENT_PROVIDER_TOKEN
-    # currency = "rub"
-    # prices = [LabeledPrice("Сумма заказа", tariff.price * 100)]
-
-    # context.bot.send_invoice(
-    #     chat_id, title, description, payload, provider_token, currency, prices
-    # )
-
-    set_tariff_to_customer(context.user_data['telegram_id'], tariff)
-
-    customer = get_customer(
-        telegram_id=context.user_data['telegram_id']
-    )
-    keyboard = customer_menu_keyboard(customer)
-
-    query.edit_message_text(
-        'Оплата прошла успешно.',
-        reply_markup=keyboard
+    context.bot.send_invoice(
+        chat_id, title, description, payload, provider_token, currency, prices
     )
 
     return CUSTOMER
+
 
 def precheckout_callback(update: Update, context: CallbackContext):
     query = update.pre_checkout_query
@@ -326,6 +317,11 @@ def precheckout_callback(update: Update, context: CallbackContext):
         query.answer(ok=False, error_message="Что-то пошло не так...")
     else:
         query.answer(ok=True)
+
+    tariff = context.user_data['tariff']
+    set_tariff_to_customer(context.user_data['telegram_id'], tariff)
+
+    return CUSTOMER
 
 
 def save_freelancer_order(update: Update, context: CallbackContext):
@@ -364,7 +360,9 @@ def start_bot():
                     CallbackQueryHandler(subscribe_menu, pattern='subscribe'),
                     CallbackQueryHandler(get_orders_title, pattern='create_order'),
                     CallbackQueryHandler(show_customer_orders, pattern='customer_orders'),
-                    CallbackQueryHandler(main_menu, pattern='back_to_main_menu')
+                    CallbackQueryHandler(main_menu, pattern='back_to_main_menu'),
+                    PreCheckoutQueryHandler(precheckout_callback, pass_update_queue=True),
+                    MessageHandler(Filters.successful_payment, customer_menu)
                 ],
             TARIFF_PAYMENT:
                 [
@@ -381,7 +379,7 @@ def start_bot():
                     MessageHandler(Filters.text, get_document)
                 ],
             COLLECT_ORDER_DATA:
-                [   
+                [
                     CallbackQueryHandler(get_order_file, pattern='attach_file'),
                     CallbackQueryHandler(
                         collect_order_data_without_file,
@@ -402,9 +400,7 @@ def start_bot():
                     CallbackQueryHandler(show_order_description, pattern=None)
                 ],
             NOT_FREELANCER:
-                [
-                    CallbackQueryHandler(main_menu, pattern='back_to_main_menu')
-                ],
+                [CallbackQueryHandler(main_menu, pattern='back_to_main_menu')],
             GET_DOCUMENT:
                 [
                     MessageHandler(Filters.document, collect_order_data)
@@ -416,6 +412,7 @@ def start_bot():
         ]
     )
     dispatcher.add_handler(conv_handler)
+    dispatcher.add_handler(PreCheckoutQueryHandler(precheckout_callback))
+
     updater.start_polling()
     updater.idle()
-
