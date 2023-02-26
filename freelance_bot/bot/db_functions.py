@@ -1,4 +1,4 @@
-from freelance_bot.models import Customer, Tariff
+from freelance_bot.models import Customer, Tariff, Order
 
 
 def get_or_create_customer(telegram_id, first_name, last_name, nickname):
@@ -28,3 +28,22 @@ def get_tariff(tariff_name):
 
 def set_tariff_to_customer(telegram_id, tariff):
     Customer.objects.filter(telegram_id=telegram_id).update(tariff=tariff)
+
+
+def create_order(name, description, telegram_file_id, customer_id):
+    customer = Customer.objects.get(telegram_id=customer_id)
+    Order.objects.create(
+        name=name,
+        description=description,
+        telegram_file_id=telegram_file_id, 
+        customer=customer
+    )
+
+
+def create_order_without_file(name, description, customer_id):
+    customer = Customer.objects.get(telegram_id=customer_id)
+    Order.objects.create(
+        name=name,
+        description=description,
+        customer=customer
+    )

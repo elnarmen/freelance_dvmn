@@ -89,3 +89,14 @@ def freelancer_order_keyboard():
     ]
 
     return InlineKeyboardMarkup(keyboard)
+
+
+def get_document_keyboard():
+    keyboard = [
+        [
+            InlineKeyboardButton("Приложить файл", callback_data="attach_file"),
+            InlineKeyboardButton("Не прикладывать", callback_data="not_attach_file")
+        ]
+    ]
+
+    return InlineKeyboardMarkup(keyboard)
