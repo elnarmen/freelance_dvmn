@@ -129,3 +129,12 @@ def get_document_keyboard():
     ]
 
     return InlineKeyboardMarkup(keyboard)
+
+
+def customer_order_keyboard():
+    keyboard = [
+        [InlineKeyboardButton("Назад к списку заказов", callback_data="back")],
+        [InlineKeyboardButton("Удалить заказ", callback_data="delete_order")]
+    ]
+
+    return InlineKeyboardMarkup(keyboard)
