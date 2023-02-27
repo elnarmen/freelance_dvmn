@@ -144,26 +144,34 @@ def get_order_file(update: Update, context: CallbackContext):
 
 
 def collect_order_data(update: Update, context: CallbackContext):
-    if update.message.document:
-        customer_id = update.effective_user.id
-        order_title = context.user_data['order_title']
-        order_description = context.user_data['order_description']
-        file = context.bot.get_file(update.message.document)
-        telegram_file_id = file.file_id
-
-        create_order(order_title, order_description, telegram_file_id, customer_id)
-
-        customer = get_customer(
-            telegram_id=customer_id
-        )
-        keyboard = customer_menu_keyboard(customer)
-
+    if not update.message.document:
         update.message.reply_text(
-            'Ваш заказ создан!',
-            reply_markup=keyboard
+            '''
+            Неверный формат файла. Приложите документ или выберите "Не прикладывать"
+            ''',
+            reply_markup=get_document_keyboard()
         )
+        return COLLECT_ORDER_DATA
 
-        return CUSTOMER
+    customer_id = update.effective_user.id
+    order_title = context.user_data['order_title']
+    order_description = context.user_data['order_description']
+    file = context.bot.get_file(update.message.document)
+    telegram_file_id = file.file_id
+
+    create_order(order_title, order_description, telegram_file_id, customer_id)
+
+    customer = get_customer(
+        telegram_id=customer_id
+    )
+    keyboard = customer_menu_keyboard(customer)
+
+    update.message.reply_text(
+        'Ваш заказ создан!',
+        reply_markup=keyboard
+    )
+
+    return CUSTOMER
 
 
 def collect_order_data_without_file(update: Update, context: CallbackContext):
@@ -399,7 +407,7 @@ def precheckout_callback(update: Update, context: CallbackContext):
         query.answer(ok=True)
 
     tariff = context.user_data['tariff']
-    set_tariff_to_customer(context.user_data['telegram_id'], tariff)
+    # set_tariff_to_customer(context.user_data['telegram_id'], tariff)
 
     return CUSTOMER
 
@@ -489,7 +497,7 @@ def start_bot():
                 [CallbackQueryHandler(main_menu, pattern='back_to_main_menu')],
             GET_DOCUMENT:
                 [
-                    MessageHandler(Filters.document, collect_order_data)
+                    MessageHandler(Filters.all, collect_order_data)
                 ],
         },
         fallbacks=[
