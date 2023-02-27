@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 # Create your models here.
 class Tariff(models.Model):
@@ -158,6 +159,12 @@ class Message(models.Model):
 
     message = models.TextField(
         'Содержание сообщения'
+    )
+
+    created_at = models.DateTimeField(
+        'Время и дата сообщения',
+        default=timezone.now,
+        db_index=True
     )
 
     class Meta:
