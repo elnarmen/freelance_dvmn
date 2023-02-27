@@ -224,13 +224,13 @@ def show_customer_orders(update: Update, context: CallbackContext):
             text = 'Вы просмотрели все заказы'
             keyboard = [
                 [InlineKeyboardButton("Назад", callback_data='previous')],
-                [InlineKeyboardButton("Вернуться в меню", callback_data='freelancer')]
+                [InlineKeyboardButton("Вернуться в меню", callback_data='customer')]
             ]
             query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
             return CUSTOMER
         text = 'Заказов нет'
         keyboard = [
-            [InlineKeyboardButton("Вернуться в меню", callback_data='freelancer')],
+            [InlineKeyboardButton("Вернуться в меню", callback_data='customer')],
         ]
         query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
         return CUSTOMER
