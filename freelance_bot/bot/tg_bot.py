@@ -3,17 +3,16 @@ from telegram.ext import CallbackContext, Updater, ConversationHandler, CommandH
     MessageHandler, Filters, PreCheckoutQueryHandler
 from django.conf import settings
 
-import os
-from dotenv import load_dotenv
 from more_itertools import chunked
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from freelance_bot.bot.keyboards import main_menu_keyboard, customer_menu_keyboard, subscribe_keyboard
+from freelance_bot.bot.keyboards import main_menu_keyboard, customer_menu_keyboard, subscribe_keyboard, \
+    customer_order_keyboard
 from freelance_bot.bot.keyboards import orders_keyboard, available_order_keyboard, freelancer_order_keyboard, customer_orders_keyboard
 from freelance_bot.bot.keyboards import back_to_main_menu_keyboard, freelancer_menu_keyboard
 from freelance_bot.bot.keyboards import get_document_keyboard
 from freelance_bot.bot.db_functions import get_or_create_customer, get_customer, get_tariff, create_order, \
-    get_customer_orders
+    get_customer_orders, delete_order
 from freelance_bot.bot.db_functions import set_tariff_to_customer, create_order_without_file
 
 from freelance_bot.models import Customer, Order
@@ -193,7 +192,6 @@ def collect_order_data_without_file(update: Update, context: CallbackContext):
 
 
 def request_customer_orders(update: Update, context: CallbackContext):
-    query = update.callback_query
     telegram_id = update.effective_user.id
     orders = get_customer_orders(telegram_id)
     orders_per_page = 5
@@ -244,6 +242,42 @@ def show_customer_orders(update: Update, context: CallbackContext):
         reply_markup=keyboard
     )
     return CUSTOMER
+
+
+def show_customer_order_description(update: Update, context: CallbackContext):
+    query = update.callback_query
+    order = Order.objects.get(name=query.data)
+    keyboard = customer_order_keyboard()
+
+    text = f'''
+{order.name}
+
+{order.description}
+        '''
+    try:
+        if order.telegram_file_id:
+            query.message.reply_document(
+                document=order.telegram_file_id,
+                caption=text,
+                reply_markup=keyboard
+            )
+        else:
+            query.message.reply_text(
+                text=text,
+                reply_markup=keyboard
+            )
+        context.user_data['viewed_order_title'] = query.data
+        return CUSTOMER
+    except ValueError:
+        query.message.reply_text(text=text, reply_markup=keyboard)
+    except FileNotFoundError:
+        query.message.reply_text(text=text, reply_markup=keyboard)
+
+
+def delete_customer_order(update: Update, context: CallbackContext):
+    order_title = context.user_data['viewed_order_title']
+    delete_order(order_title)
+    return request_customer_orders(update, context)
 
 
 def request_freelanser_orders(update: Update, context: CallbackContext):
@@ -412,7 +446,9 @@ def start_bot():
                     CallbackQueryHandler(show_customer_orders, pattern='previous'),
                     CallbackQueryHandler(show_customer_orders, pattern='back'),
                     PreCheckoutQueryHandler(precheckout_callback, pass_update_queue=True),
-                    MessageHandler(Filters.successful_payment, customer_menu)
+                    MessageHandler(Filters.successful_payment, customer_menu),
+                    CallbackQueryHandler(delete_customer_order, pattern='delete_order'),
+                    CallbackQueryHandler(show_customer_order_description, pattern=None),
                 ],
             TARIFF_PAYMENT:
                 [
