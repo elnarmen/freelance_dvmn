@@ -53,3 +53,8 @@ def get_customer_orders(telegram_id):
     customer = Customer.objects.get(telegram_id=telegram_id)
     orders = customer.customer_orders.all()
     return orders
+
+
+def delete_order(order_title):
+    order = Order.objects.filter(name=order_title)
+    order.delete()
