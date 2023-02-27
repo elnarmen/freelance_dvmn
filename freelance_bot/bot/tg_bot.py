@@ -406,8 +406,8 @@ def precheckout_callback(update: Update, context: CallbackContext):
     else:
         query.answer(ok=True)
 
-    tariff = context.user_data['tariff']
-    # set_tariff_to_customer(context.user_data['telegram_id'], tariff)
+        tariff = context.user_data['tariff']
+        set_tariff_to_customer(context.user_data['telegram_id'], tariff)
 
     return CUSTOMER
 
