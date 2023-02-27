@@ -9,10 +9,11 @@ from more_itertools import chunked
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from freelance_bot.bot.keyboards import main_menu_keyboard, customer_menu_keyboard, subscribe_keyboard
-from freelance_bot.bot.keyboards import orders_keyboard, available_order_keyboard, freelancer_order_keyboard
+from freelance_bot.bot.keyboards import orders_keyboard, available_order_keyboard, freelancer_order_keyboard, customer_orders_keyboard
 from freelance_bot.bot.keyboards import back_to_main_menu_keyboard, freelancer_menu_keyboard
 from freelance_bot.bot.keyboards import get_document_keyboard
-from freelance_bot.bot.db_functions import get_or_create_customer, get_customer, get_tariff, create_order
+from freelance_bot.bot.db_functions import get_or_create_customer, get_customer, get_tariff, create_order, \
+    get_customer_orders
 from freelance_bot.bot.db_functions import set_tariff_to_customer, create_order_without_file
 
 from freelance_bot.models import Customer, Order
@@ -191,13 +192,58 @@ def collect_order_data_without_file(update: Update, context: CallbackContext):
     return CUSTOMER
 
 
+def request_customer_orders(update: Update, context: CallbackContext):
+    query = update.callback_query
+    telegram_id = update.effective_user.id
+    orders = get_customer_orders(telegram_id)
+    orders_per_page = 5
+    context.user_data['orders'] = list(chunked(orders, orders_per_page))
+    show_customer_orders(update, context)
+
+    return CUSTOMER
+
+
 def show_customer_orders(update: Update, context: CallbackContext):
     query = update.callback_query
-    query.edit_message_text(
-        'Заказы заказчика.'
-    )
+    current_orders_index = context.user_data.get('current_orders_index', 0)
+    if query.data == 'previous' and current_orders_index > 0:
+        current_orders_index -= 1
+        context.user_data['current_orders_index'] = current_orders_index
 
-    return ROLE
+    if query.data == 'next':
+        current_orders_index += 1
+        context.user_data['current_orders_index'] = current_orders_index
+
+    if query.data == "cancel_order":
+        keyboard = freelancer_menu_keyboard()
+        query.edit_message_reply_markup(keyboard)
+        return CHOOSING_ORDER
+
+    if 0 <= current_orders_index < len(context.user_data['orders']):
+        context.user_data['current_orders'] = context.user_data['orders'][current_orders_index]
+    else:
+        if current_orders_index > 0:
+            text = 'Вы просмотрели все заказы'
+            keyboard = [
+                [InlineKeyboardButton("Назад", callback_data='previous')],
+                [InlineKeyboardButton("Вернуться в меню", callback_data='freelancer')]
+            ]
+            query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+            return CUSTOMER
+        text = 'Заказов нет'
+        keyboard = [
+            [InlineKeyboardButton("Вернуться в меню", callback_data='freelancer')],
+        ]
+        query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+        return CUSTOMER
+
+    orders = context.user_data['current_orders']
+    keyboard = customer_orders_keyboard(*orders, current_orders_index=current_orders_index)
+    query.message.reply_text(
+        text='Ваши заказы:',
+        reply_markup=keyboard
+    )
+    return CUSTOMER
 
 
 def request_freelanser_orders(update: Update, context: CallbackContext):
@@ -359,8 +405,12 @@ def start_bot():
                     CallbackQueryHandler(subscribe_menu, pattern='choose_tariff'),
                     CallbackQueryHandler(subscribe_menu, pattern='subscribe'),
                     CallbackQueryHandler(get_orders_title, pattern='create_order'),
-                    CallbackQueryHandler(show_customer_orders, pattern='customer_orders'),
+                    CallbackQueryHandler(request_customer_orders, pattern='customer_orders'),
                     CallbackQueryHandler(main_menu, pattern='back_to_main_menu'),
+                    CallbackQueryHandler(customer_menu, pattern='customer'),
+                    CallbackQueryHandler(show_customer_orders, pattern='next'),
+                    CallbackQueryHandler(show_customer_orders, pattern='previous'),
+                    CallbackQueryHandler(show_customer_orders, pattern='back'),
                     PreCheckoutQueryHandler(precheckout_callback, pass_update_queue=True),
                     MessageHandler(Filters.successful_payment, customer_menu)
                 ],
