@@ -134,9 +134,11 @@ class Order(models.Model):
 
 
 class Message(models.Model):
-    chat_id = models.IntegerField(
-        'ID чата',
-        db_index=True
+    order = models.ForeignKey(
+        Order,
+        verbose_name='Заказ',
+        related_name='chat_messages',
+        on_delete=models.CASCADE
     )
 
     customer = models.ForeignKey(
