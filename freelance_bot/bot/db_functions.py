@@ -47,3 +47,9 @@ def create_order_without_file(name, description, customer_id):
         description=description,
         customer=customer
     )
+
+
+def get_customer_orders(telegram_id):
+    customer = Customer.objects.get(telegram_id=telegram_id)
+    orders = customer.customer_orders.all()
+    return orders
