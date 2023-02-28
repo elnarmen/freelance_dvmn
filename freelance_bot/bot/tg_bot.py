@@ -263,7 +263,11 @@ def show_customer_order_description(update: Update, context: CallbackContext):
 Описание: {order.description}
 
 Статус: {order.get_status_display()}
-        '''
+
+'''
+    if order.freelancer:
+        text += f'Исполнитель: {order.freelancer}'
+
     try:
         if order.telegram_file_id:
             query.message.reply_document(
