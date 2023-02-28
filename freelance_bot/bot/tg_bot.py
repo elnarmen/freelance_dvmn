@@ -303,7 +303,7 @@ def request_freelanser_orders(update: Update, context: CallbackContext):
 
 
 def request_available_orders(update: Update, context: CallbackContext):
-    orders = Order.objects.filter(status=Order.CREATE)
+    orders = Order.objects.filter(status='create')
     orders_per_page = 5
     context.user_data['orders'] = list(chunked(orders, orders_per_page))
     context.user_data['is_available_orders'] = True
