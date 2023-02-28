@@ -220,11 +220,6 @@ def show_customer_orders(update: Update, context: CallbackContext):
         current_orders_index += 1
         context.user_data['current_orders_index'] = current_orders_index
 
-    if query.data == "cancel_order":
-        keyboard = freelancer_menu_keyboard()
-        query.edit_message_reply_markup(keyboard)
-        return CHOOSING_ORDER
-
     if 0 <= current_orders_index < len(context.user_data['orders']):
         context.user_data['current_orders'] = context.user_data['orders'][current_orders_index]
     else:
@@ -255,19 +250,23 @@ def show_customer_orders(update: Update, context: CallbackContext):
 def show_customer_order_description(update: Update, context: CallbackContext):
     query = update.callback_query
     order = Order.objects.get(name=query.data)
-    keyboard = customer_order_keyboard()
+    if order.freelancer:
+        keyboard = customer_order_keyboard(freelancer=True)
+    else:
+        keyboard = customer_order_keyboard(freelancer=False)
 
     text = f'''
-Название: {order.name}
 
-Описание: {order.description}
+Название заказа: {order.name}
 
-Статус: {order.get_status_display()}
+Описание заказа: {order.description}
 
-'''
+Статус заказа:  {order.get_status_display()}
+        '''
     if order.freelancer:
-        text += f'Исполнитель: {order.freelancer}'
-
+        text += f'''
+Исполнитель заказа: {order.freelancer}
+        '''
     try:
         if order.telegram_file_id:
             query.message.reply_document(
@@ -305,7 +304,7 @@ def request_freelanser_orders(update: Update, context: CallbackContext):
 
 
 def request_available_orders(update: Update, context: CallbackContext):
-    orders = Order.objects.filter(status=Order.CREATE)
+    orders = Order.objects.filter(status='create')
     orders_per_page = 5
     context.user_data['orders'] = list(chunked(orders, orders_per_page))
     context.user_data['is_available_orders'] = True
@@ -362,10 +361,12 @@ def show_freelancer_order_description(update: Update, context: CallbackContext):
         context.user_data['is_available_orders'] else freelancer_order_keyboard()
 
     text = f'''
-{order.name}
+Название заказа: {order.name}
 
-{order.description}
-    '''
+Описание заказа: {order.description}
+
+Статус заказа:  {Order.OrderStatus(order.status).label}
+            '''
     try:
         if order.telegram_file_id:
             query.message.reply_document(
