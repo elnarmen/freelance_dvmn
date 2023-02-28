@@ -250,7 +250,10 @@ def show_customer_orders(update: Update, context: CallbackContext):
 def show_customer_order_description(update: Update, context: CallbackContext):
     query = update.callback_query
     order = Order.objects.get(name=query.data)
-    keyboard = customer_order_keyboard()
+    if order.freelancer:
+        keyboard = customer_order_keyboard(freelancer=True)
+    else:
+        keyboard = customer_order_keyboard(freelancer=False)
 
     text = f'''
 {order.name}
