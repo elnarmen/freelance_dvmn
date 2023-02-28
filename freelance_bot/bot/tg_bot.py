@@ -258,9 +258,11 @@ def show_customer_order_description(update: Update, context: CallbackContext):
     keyboard = customer_order_keyboard()
 
     text = f'''
-{order.name}
+Название: {order.name}
 
-{order.description}
+Описание: {order.description}
+
+Статус: {order.get_status_display()}
         '''
     try:
         if order.telegram_file_id:
