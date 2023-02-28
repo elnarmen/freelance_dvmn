@@ -1,0 +1,1 @@
+web: python3 manage.py start_bot
