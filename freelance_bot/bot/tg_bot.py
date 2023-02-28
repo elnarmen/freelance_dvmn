@@ -256,9 +256,15 @@ def show_customer_order_description(update: Update, context: CallbackContext):
         keyboard = customer_order_keyboard(freelancer=False)
 
     text = f'''
-{order.name}
+Название заказа: {order.name}
 
-{order.description}
+Описание заказа: {order.description}
+
+Статус заказа:  {Order.OrderStatus(order.status).label}
+        '''
+    if order.status == 'work':
+        text += f'''
+Исполнитель заказа: {order.freelancer}
         '''
     try:
         if order.telegram_file_id:
@@ -354,10 +360,12 @@ def show_order_description(update: Update, context: CallbackContext):
         context.user_data['is_available_orders'] else freelancer_order_keyboard()
 
     text = f'''
-{order.name}
+Название заказа: {order.name}
 
-{order.description}
-    '''
+Описание заказа: {order.description}
+
+Статус заказа:  {Order.OrderStatus(order.status).label}
+            '''
     try:
         if order.telegram_file_id:
             query.message.reply_document(
