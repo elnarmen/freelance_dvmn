@@ -405,8 +405,6 @@ def show_freelancer_order_description(update: Update, context: CallbackContext):
 def customer_chat(update: Update, context: CallbackContext):
     query = update.callback_query
     order = Order.objects.get(name=context.user_data['viewed_order_title'])
-    # customer_id = update.effective_user.id
-    # freelancer_id = context.user_data['freelancer_of_order']
     
     order_messages = get_messages_from_order(order)
 
@@ -461,6 +459,18 @@ def get_customer_message(update: Update, context: CallbackContext):
             message
         )
 
+        message_to_freelancer = dedent(
+            f"""\
+            У вас новое сообщение от заказчика в заказе
+            '{order.name}'. Перейдите в чат этого заказа, чтобы его прочитать.
+            """
+        )
+
+        context.bot.send_message(
+            text=message_to_freelancer,
+            chat_id=freelancer_id,
+        )
+
         text = dedent(
             f"""\
             Ваше сообщение отправлено исполнителю!
@@ -490,8 +500,6 @@ def get_customer_message(update: Update, context: CallbackContext):
 def freelancer_chat(update: Update, context: CallbackContext):
     query = update.callback_query
     order = Order.objects.get(name=context.user_data['viewed_order_title'])
-    # freelancer_id = update.effective_user.id
-    # customer_id = context.user_data['freelancer_of_order']
     
     order_messages = get_messages_from_order(order)
 
@@ -544,6 +552,18 @@ def get_freelancer_message(update: Update, context: CallbackContext):
             freelancer_id,
             customer_id,
             message
+        )
+
+        message_to_customer = dedent(
+            f"""\
+            У вас новое сообщение от исполнителя заказа
+            '{order.name}'. Перейдите в чат этого заказа, чтобы его прочитать.
+            """
+        )
+
+        context.bot.send_message(
+            text=message_to_customer,
+            chat_id=customer_id,
         )
 
         text = dedent(
@@ -608,6 +628,21 @@ def save_freelancer_order(update: Update, context: CallbackContext):
     order.status = 'work'
     order.freelancer = freelancer
     order.save()
+
+    message_to_customer = dedent(
+        f"""\
+        Ваш заказ '{order.name}' взят в работу.
+
+        Теперь вы можете общаться с исполнителем.
+        Для этого нажмите кноаку "Чат" в меню заказа.
+        """
+    )
+
+    context.bot.send_message(
+        text=message_to_customer,
+        chat_id=order.customer.telegram_id,
+    )
+
     return freelancer_menu(update, context)
 
 
@@ -616,6 +651,14 @@ def cancel_freelancer_order(update: Update, context: CallbackContext):
     order.status = 'create'
     order.freelancer = None
     order.save()
+
+    message_to_customer = f"Исполнитель отказался от заказа '{order.name}'."
+
+    context.bot.send_message(
+        text=message_to_customer,
+        chat_id=order.customer.telegram_id,
+    )
+
     return request_freelanser_orders(update, context)
 
 
@@ -623,6 +666,14 @@ def complete_freelancer_order(update: Update, context: CallbackContext):
     order = Order.objects.get(name=context.user_data['viewed_order_title'])
     order.status = 'closed'
     order.save()
+
+    message_to_customer = f"Испонитель завершил заказ '{order.name}'."
+
+    context.bot.send_message(
+        text=message_to_customer,
+        chat_id=order.customer.telegram_id,
+    )
+
     return request_freelanser_orders(update, context)
 
 
