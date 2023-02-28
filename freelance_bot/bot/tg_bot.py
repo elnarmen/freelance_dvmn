@@ -1,3 +1,5 @@
+from textwrap import dedent
+
 from telegram import Update, InputFile, LabeledPrice
 from telegram.ext import CallbackContext, Updater, ConversationHandler, CommandHandler, CallbackQueryHandler, \
     MessageHandler, Filters, PreCheckoutQueryHandler
@@ -12,8 +14,8 @@ from freelance_bot.bot.keyboards import orders_keyboard, available_order_keyboar
 from freelance_bot.bot.keyboards import back_to_main_menu_keyboard, freelancer_menu_keyboard
 from freelance_bot.bot.keyboards import get_document_keyboard
 from freelance_bot.bot.db_functions import get_or_create_customer, get_customer, get_tariff, create_order, \
-    get_customer_orders, delete_order
-from freelance_bot.bot.db_functions import set_tariff_to_customer, create_order_without_file
+    get_customer_orders, delete_order, set_tariff_to_customer, create_order_without_file, create_message, \
+    get_messages_from_order
 
 from freelance_bot.models import Customer, Order
 
@@ -27,8 +29,10 @@ from freelance_bot.models import Customer, Order
     FREELANCER,
     NOT_FREELANCER,
     CHOOSING_ORDER,
-    GET_DOCUMENT
-) = range(10)
+    GET_DOCUMENT,
+    WAITING_CUSTOMER_MESSAGE,
+    WAITING_FREELANCER_MESSAGE
+) = range(12)
 
 
 def start(update: Update, context: CallbackContext):
@@ -280,6 +284,7 @@ def show_customer_order_description(update: Update, context: CallbackContext):
                 reply_markup=keyboard
             )
         context.user_data['viewed_order_title'] = query.data
+        context.user_data['freelancer_of_order'] = order.freelancer.telegram_id
         return CUSTOMER
     except ValueError:
         query.message.reply_text(text=text, reply_markup=keyboard)
@@ -368,6 +373,10 @@ def show_freelancer_order_description(update: Update, context: CallbackContext):
 
 Статус заказа:  {Order.OrderStatus(order.status).label}
             '''
+    if order.freelancer:
+        text += f'''
+Заказчик: {order.customer}
+        '''
     try:
         if order.telegram_file_id:
             query.message.reply_document(
@@ -381,11 +390,179 @@ def show_freelancer_order_description(update: Update, context: CallbackContext):
                 reply_markup=keyboard
             )
         context.user_data['viewed_order_title'] = query.data
+        context.user_data['customer_of_order'] = order.customer.telegram_id
         return FREELANCER
     except ValueError:
         query.message.reply_text(text=text, reply_markup=keyboard)
     except FileNotFoundError:
         query.message.reply_text(text=text, reply_markup=keyboard)
+
+
+def customer_chat(update: Update, context: CallbackContext):
+    query = update.callback_query
+    order = Order.objects.get(name=context.user_data['viewed_order_title'])
+    # customer_id = update.effective_user.id
+    # freelancer_id = context.user_data['freelancer_of_order']
+    
+    order_messages = get_messages_from_order(order)
+
+    if order_messages:
+        prev_messages = 'Предыдущие сообщения: \n' 
+
+        for number, message in enumerate(order_messages):
+            prev_message = dedent(
+                f"""\
+                Сообщение №{number+1}
+                От: {message.message_from.nickname}
+                К: {message.message_to.nickname}
+                
+                {message.message}
+
+                """
+            )
+
+            prev_messages += prev_message
+
+        prev_messages += 'Вы можете написать исполнителю ещё сообщение,\n'
+        prev_messages += 'либо ввести quit для возврата в главное меню:'
+    else:
+        prev_messages = dedent(
+            f"""\
+            Предыдущих сообщений нет. 
+
+            Напишите сообщение исполнителю, либо введите quit для
+            возврата в главное меню:
+            """
+        )
+
+    query.message.reply_text(
+        text=prev_messages,
+    )
+
+    return WAITING_CUSTOMER_MESSAGE
+
+
+def get_customer_message(update: Update, context: CallbackContext):
+    user_data = context.user_data
+    message = update.message.text
+    order = Order.objects.get(name=context.user_data['viewed_order_title'])
+    customer_id = update.effective_user.id
+    freelancer_id = context.user_data['freelancer_of_order']
+
+    if message != 'quit':
+        create_message(
+            order,
+            customer_id,
+            freelancer_id,
+            message
+        )
+
+        text = dedent(
+            f"""\
+            Ваше сообщение отправлено исполнителю!
+
+            Вы можете написать исполнителю ещё сообщение,
+            либо ввести quit для возврата в главное меню:
+            """
+        )
+
+        update.message.reply_text(text)
+
+        return WAITING_CUSTOMER_MESSAGE
+    else:
+        customer = get_customer(
+            telegram_id=customer_id
+        )
+        keyboard = customer_menu_keyboard(customer)
+
+        update.message.reply_text(
+            "Выберите действие:",
+            reply_markup=keyboard
+        )
+
+        return CUSTOMER
+
+
+def freelancer_chat(update: Update, context: CallbackContext):
+    query = update.callback_query
+    order = Order.objects.get(name=context.user_data['viewed_order_title'])
+    # freelancer_id = update.effective_user.id
+    # customer_id = context.user_data['freelancer_of_order']
+    
+    order_messages = get_messages_from_order(order)
+
+    if order_messages:
+        prev_messages = 'Предыдущие сообщения: \n' 
+
+        for number, message in enumerate(order_messages):
+            prev_message = dedent(
+                f"""\
+                Сообщение №{number+1}
+                От: {message.message_from.nickname}
+                К: {message.message_to.nickname}
+                
+                {message.message}
+
+                """
+            )
+
+            prev_messages += prev_message
+
+        prev_messages += 'Вы можете написать заказчику ещё сообщение,\n'
+        prev_messages += 'либо ввести quit для возврата в главное меню:'
+    else:
+        prev_messages = dedent(
+            f"""\
+            Предыдущих сообщений нет. 
+
+            Напишите сообщение заказчику, либо введите quit для
+            возврата в главное меню:
+            """
+        )
+
+    query.message.reply_text(
+        text=prev_messages,
+    )
+
+    return WAITING_FREELANCER_MESSAGE
+
+
+def get_freelancer_message(update: Update, context: CallbackContext):
+    user_data = context.user_data
+    message = update.message.text
+    order = Order.objects.get(name=context.user_data['viewed_order_title'])
+    freelancer_id = update.effective_user.id
+    customer_id = context.user_data['customer_of_order']
+
+    if message != 'quit':
+        create_message(
+            order,
+            freelancer_id,
+            customer_id,
+            message
+        )
+
+        text = dedent(
+            f"""\
+            Ваше сообщение отправлено заказчику!
+
+            Вы можете написать заказчику ещё сообщение,
+            либо ввести quit для возврата в главное меню:
+            """
+        )
+
+        update.message.reply_text(text)
+
+        return WAITING_FREELANCER_MESSAGE
+    else:
+        keyboard = freelancer_menu_keyboard()
+
+        update.message.reply_text(
+            "Выберите действие:",
+            reply_markup=keyboard
+        )
+
+        return FREELANCER
 
 
 def tariff_payment(update: Update, context: CallbackContext):
@@ -471,6 +648,7 @@ def start_bot():
                     PreCheckoutQueryHandler(precheckout_callback, pass_update_queue=True),
                     MessageHandler(Filters.successful_payment, customer_menu),
                     CallbackQueryHandler(delete_customer_order, pattern='delete_order'),
+                    CallbackQueryHandler(customer_chat, pattern='chat'),
                     CallbackQueryHandler(show_customer_order_description, pattern=None),
                 ],
             TARIFF_PAYMENT:
@@ -507,6 +685,7 @@ def start_bot():
                     CallbackQueryHandler(show_orders, pattern='back'),
                     CallbackQueryHandler(cancel_freelancer_order, pattern='cancel_order'),
                     CallbackQueryHandler(complete_freelancer_order, pattern='complete_order'),
+                    CallbackQueryHandler(freelancer_chat, pattern='chat'),
                     CallbackQueryHandler(show_freelancer_order_description, pattern=None)
                 ],
             NOT_FREELANCER:
@@ -515,6 +694,14 @@ def start_bot():
                 [
                     MessageHandler(Filters.all, collect_order_data)
                 ],
+            WAITING_CUSTOMER_MESSAGE:
+                [
+                    MessageHandler(Filters.text, get_customer_message)
+                ],
+            WAITING_FREELANCER_MESSAGE:
+                [
+                    MessageHandler(Filters.text, get_freelancer_message)
+                ]
         },
         fallbacks=[
             CommandHandler('rerun', start),
