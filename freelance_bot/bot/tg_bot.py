@@ -290,6 +290,7 @@ def show_customer_order_description(update: Update, context: CallbackContext):
 def delete_customer_order(update: Update, context: CallbackContext):
     order_title = context.user_data['viewed_order_title']
     delete_order(order_title)
+    update.callback_query.answer('Заказ удален!', show_alert=True)
     return request_customer_orders(update, context)
 
 
