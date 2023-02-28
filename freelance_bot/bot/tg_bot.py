@@ -256,13 +256,14 @@ def show_customer_order_description(update: Update, context: CallbackContext):
         keyboard = customer_order_keyboard(freelancer=False)
 
     text = f'''
+
 Название заказа: {order.name}
 
 Описание заказа: {order.description}
 
-Статус заказа:  {Order.OrderStatus(order.status).label}
+Статус заказа:  {order.get_status_display()}
         '''
-    if order.status == 'work':
+    if order.freelancer:
         text += f'''
 Исполнитель заказа: {order.freelancer}
         '''
@@ -295,7 +296,7 @@ def delete_customer_order(update: Update, context: CallbackContext):
 def request_freelanser_orders(update: Update, context: CallbackContext):
     user_id = update.effective_user['id']
     customer = Customer.objects.get(telegram_id=user_id)
-    orders = customer.freelancer_orders.all()
+    orders = customer.freelancer_orders.filter(status='work')
     orders_per_page = 5
     context.user_data['orders'] = list(chunked(orders, orders_per_page))
     context.user_data['is_available_orders'] = False
@@ -353,7 +354,7 @@ def show_orders(update: Update, context: CallbackContext):
     return FREELANCER
 
 
-def show_order_description(update: Update, context: CallbackContext):
+def show_freelancer_order_description(update: Update, context: CallbackContext):
     query = update.callback_query
     order = Order.objects.get(name=query.data)
     keyboard = available_order_keyboard() if \
@@ -436,6 +437,13 @@ def cancel_freelancer_order(update: Update, context: CallbackContext):
     return request_freelanser_orders(update, context)
 
 
+def complete_freelancer_order(update: Update, context: CallbackContext):
+    order = Order.objects.get(name=context.user_data['viewed_order_title'])
+    order.status = 'closed'
+    order.save()
+    return request_freelanser_orders(update, context)
+
+
 def start_bot():
     token = settings.TG_TOKEN
     updater = Updater(token=token)
@@ -497,7 +505,8 @@ def start_bot():
                     CallbackQueryHandler(show_orders, pattern='previous'),
                     CallbackQueryHandler(show_orders, pattern='back'),
                     CallbackQueryHandler(cancel_freelancer_order, pattern='cancel_order'),
-                    CallbackQueryHandler(show_order_description, pattern=None)
+                    CallbackQueryHandler(complete_freelancer_order, pattern='complete_order'),
+                    CallbackQueryHandler(show_freelancer_order_description, pattern=None)
                 ],
             NOT_FREELANCER:
                 [CallbackQueryHandler(main_menu, pattern='back_to_main_menu')],
