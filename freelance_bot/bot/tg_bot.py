@@ -220,11 +220,6 @@ def show_customer_orders(update: Update, context: CallbackContext):
         current_orders_index += 1
         context.user_data['current_orders_index'] = current_orders_index
 
-    if query.data == "cancel_order":
-        keyboard = freelancer_menu_keyboard()
-        query.edit_message_reply_markup(keyboard)
-        return CHOOSING_ORDER
-
     if 0 <= current_orders_index < len(context.user_data['orders']):
         context.user_data['current_orders'] = context.user_data['orders'][current_orders_index]
     else:
@@ -255,7 +250,10 @@ def show_customer_orders(update: Update, context: CallbackContext):
 def show_customer_order_description(update: Update, context: CallbackContext):
     query = update.callback_query
     order = Order.objects.get(name=query.data)
-    keyboard = customer_order_keyboard()
+    if order.freelancer:
+        keyboard = customer_order_keyboard(freelancer=True)
+    else:
+        keyboard = customer_order_keyboard(freelancer=False)
 
     text = f'''
 {order.name}
