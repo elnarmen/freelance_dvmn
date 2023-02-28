@@ -109,6 +109,7 @@ def subscribe_menu(update: Update, context: CallbackContext):
 
 def get_orders_title(update: Update, context: CallbackContext):
     query = update.callback_query
+    context.user_data['title_query'] = query
     query.edit_message_text('Введите название заказа:')
 
     return CREATE_ORDERS_DESCRIPTION
@@ -117,11 +118,14 @@ def get_orders_title(update: Update, context: CallbackContext):
 def get_orders_description(update: Update, context: CallbackContext):
     user_data = context.user_data
     order_title = update.message.text
-    user_data['order_title'] = order_title
-
-    update.message.reply_text('Введите описание заказа:')
-
-    return GET_ORDER_FILE
+    if Order.objects.filter(name=order_title).exists():
+        update.message.reply_text('Заказ с таким названием уже существует, введите другое название:')
+        update.callback_query = context.user_data['title_query']
+        get_orders_title(update, context)
+    else:
+        user_data['order_title'] = order_title
+        update.message.reply_text('Введите описание заказа:')
+        return GET_ORDER_FILE
 
 
 def get_document(update: Update, context: CallbackContext):
