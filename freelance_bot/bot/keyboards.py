@@ -4,10 +4,10 @@ from freelance_bot.models import Customer
 
 
 def main_menu_keyboard():
-    keyboard = [
-        [InlineKeyboardButton("Заказчик", callback_data='customer')],
-        [InlineKeyboardButton("Фрилансер", callback_data='freelancer')],
-    ]
+    keyboard = [[
+        InlineKeyboardButton("Заказчик", callback_data='customer'),
+        InlineKeyboardButton("Фрилансер", callback_data='freelancer'),
+    ]]
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -113,8 +113,14 @@ def available_order_keyboard():
 
 def freelancer_order_keyboard():
     keyboard = [
-        [InlineKeyboardButton("Назад к списку заказов", callback_data="back")],
-        [InlineKeyboardButton("Отказаться от заказа", callback_data="cancel_order")]
+        [
+            InlineKeyboardButton("Отказаться от заказа", callback_data="cancel_order"),
+            InlineKeyboardButton("Завершить заказ", callback_data="complete_order"),
+        ],
+        [
+            InlineKeyboardButton("Назад к списку заказов", callback_data="back"),
+            InlineKeyboardButton("Чат c заказчиком", callback_data="chat")
+        ]
     ]
 
     return InlineKeyboardMarkup(keyboard)
@@ -131,10 +137,16 @@ def get_document_keyboard():
     return InlineKeyboardMarkup(keyboard)
 
 
-def customer_order_keyboard():
-    keyboard = [
-        [InlineKeyboardButton("Назад к списку заказов", callback_data="back")],
-        [InlineKeyboardButton("Удалить заказ", callback_data="delete_order")]
-    ]
+def customer_order_keyboard(freelancer=True):
+    if freelancer:
+        keyboard = [
+            [InlineKeyboardButton("Назад к списку заказов", callback_data="back")],
+            [InlineKeyboardButton("Чат", callback_data="chat")]
+        ]
+    else:
+        keyboard = [
+            [InlineKeyboardButton("Назад к списку заказов", callback_data="back")],
+            [InlineKeyboardButton("Удалить заказ", callback_data="delete_order")]
+        ]
 
     return InlineKeyboardMarkup(keyboard)

@@ -1,4 +1,4 @@
-from freelance_bot.models import Customer, Tariff, Order
+from freelance_bot.models import Customer, Tariff, Order,  Message
 
 
 def get_or_create_customer(telegram_id, first_name, last_name, nickname):
@@ -58,3 +58,21 @@ def get_customer_orders(telegram_id):
 def delete_order(order_title):
     order = Order.objects.filter(name=order_title)
     order.delete()
+
+
+def create_message(order, telegram_id_from, telegram_id_to, message):
+    customer_from = Customer.objects.get(telegram_id=telegram_id_from)
+    customer_to = Customer.objects.get(telegram_id=telegram_id_to)
+    Message.objects.create(
+        order=order,
+        message_from=customer_from,
+        message_to=customer_to,
+        message=message
+    )
+
+
+def get_messages_from_order(order):
+    
+    return Message.objects.filter(
+        order=order
+    )
