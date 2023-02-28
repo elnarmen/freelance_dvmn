@@ -141,7 +141,6 @@ def customer_order_keyboard(freelancer=True):
     if freelancer:
         keyboard = [
             [InlineKeyboardButton("Назад к списку заказов", callback_data="back")],
-            [InlineKeyboardButton("Удалить заказ", callback_data="delete_order")],
             [InlineKeyboardButton("Чат", callback_data="chat")]
         ]
     else:
