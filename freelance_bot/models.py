@@ -137,17 +137,17 @@ class Message(models.Model):
         on_delete=models.CASCADE
     )
 
-    customer = models.ForeignKey(
+    message_from = models.ForeignKey(
         Customer,
-        verbose_name='Заказчик',
-        related_name='customer_messages',
+        verbose_name='От кого',
+        related_name='from_messages',
         on_delete=models.CASCADE
     )
 
-    freelancer = models.ForeignKey(
+    message_to = models.ForeignKey(
         Customer,
-        verbose_name='Исполнитель',
-        related_name='freelancer_messagess',
+        verbose_name='Kому',
+        related_name='to_messagess',
         on_delete=models.SET_NULL,
         null=True
     )
@@ -167,4 +167,4 @@ class Message(models.Model):
         verbose_name_plural = 'Сообщения'
 
     def __str__(self):
-        return f'От {self.customer} к {self.freelancer}'
+        return f'От {self.message_from} к {self.message_to}. Дата: {self.created_at}'
