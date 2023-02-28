@@ -75,15 +75,10 @@ class Customer(models.Model):
 
 
 class Order(models.Model):
-    CREATE = 'create'
-    WORK = 'work'
-    CLOSED = 'closed'
-    
-    STATUS_CHOICES = [
-        (CREATE, 'Создан'),
-        (WORK, 'В работе'),
-        (CLOSED, 'Завершен'),
-    ]
+    class OrderStatus(models.TextChoices):
+        CREATE = 'create', 'Создан'
+        WORK = 'work', 'В работе'
+        CLOSED = 'closed', 'Завершен'
 
     name = models.CharField(
         'Название заказа',
@@ -121,9 +116,9 @@ class Order(models.Model):
     status = models.CharField(
         'Статус заказа',
         max_length=20,
-        choices=STATUS_CHOICES,
+        choices=OrderStatus.choices,
         db_index=True,
-        default=CREATE
+        default=OrderStatus.CREATE
     )
 
     class Meta:
