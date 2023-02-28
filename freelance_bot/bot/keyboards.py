@@ -4,10 +4,10 @@ from freelance_bot.models import Customer
 
 
 def main_menu_keyboard():
-    keyboard = [
-        [InlineKeyboardButton("Заказчик", callback_data='customer')],
-        [InlineKeyboardButton("Фрилансер", callback_data='freelancer')],
-    ]
+    keyboard = [[
+        InlineKeyboardButton("Заказчик", callback_data='customer'),
+        InlineKeyboardButton("Фрилансер", callback_data='freelancer'),
+    ]]
     return InlineKeyboardMarkup(keyboard)
 
 
