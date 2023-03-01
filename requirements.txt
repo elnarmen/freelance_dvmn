@@ -1,4 +1,4 @@
 Django==3.2
 environs==9.5.0
-python-telegram-bot==13.12
+python-telegram-bot==13.13
 more_itertools==9.0.0
