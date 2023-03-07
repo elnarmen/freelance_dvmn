@@ -96,5 +96,5 @@ python manage.py runserver
 
 [Эльнар Менгельбаев](https://github.com/elnarmen)
 
-[https://github.com/leenythebear](https://github.com/leenythebear)
+[leenythebear](https://github.com/leenythebear)
 
